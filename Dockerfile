@@ -10,6 +10,7 @@ RUN go mod download
 COPY . .
 
 # Собираем приложение
+RUN apt-get update && apt-get install -y ca-certificates
 RUN go build -o app ./cmd/bot
 
 # Используем минимальный образ для финального контейнера
