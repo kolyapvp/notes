@@ -63,7 +63,8 @@ func DeleteTaskHandler(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		return
 	}
 
-	err = db.DeleteTask(index - 1)
+	// Преобразуем индекс в строку перед отправкой в DeleteTask
+	err = db.DeleteTask(strconv.Itoa(index - 1))
 	if err != nil {
 		log.Println("Ошибка удаления задачи:", err)
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не удалось удалить задачу.")
