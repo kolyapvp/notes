@@ -14,19 +14,14 @@ services:
       - "8080:8080"
 
   db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: tasks
+    image: mongo:6.0
+    container_name: mongo_db
     ports:
-      - "5433:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: user
+      MONGO_INITDB_ROOT_PASSWORD: password
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user"]
-      interval: 5s
+      test: ["CMD", "mongo", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
       retries: 5
-
-volumes:
-  db_data:

@@ -1,65 +1,89 @@
 package db
 
 import (
-	"database/sql"
+	"context"
 	"log"
+	"time"
 
-	_ "github.com/lib/pq" // PostgreSQL драйвер
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var db *sql.DB
+var client *mongo.Client
+var tasksCollection *mongo.Collection
 
-// InitDB инициализирует подключение к базе данных
+// InitDB инициализирует подключение к MongoDB
 func InitDB(conn string) error {
 	var err error
-	db, err = sql.Open("postgres", conn)
+	client, err = mongo.NewClient(options.Client().ApplyURI(conn))
 	if err != nil {
-		log.Printf("Ошибка при открытии подключения: %v", err)
+		log.Printf("Ошибка создания клиента MongoDB: %v", err)
 		return err
 	}
 
-	// Проверка соединения с базой
-	if err := db.Ping(); err != nil {
-		log.Printf("Ошибка при проверке подключения: %v", err)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = client.Connect(ctx)
+	if err != nil {
+		log.Printf("Ошибка подключения к MongoDB: %v", err)
 		return err
 	}
 
-	log.Println("Подключение к базе данных установлено успешно")
+	// Проверяем соединение
+	err = client.Ping(ctx, nil)
+	if err != nil {
+		log.Printf("Ошибка пинга MongoDB: %v", err)
+		return err
+	}
+
+	// Устанавливаем коллекцию
+	tasksCollection = client.Database("tasksdb").Collection("tasks")
+	log.Println("Подключение к MongoDB установлено успешно")
 	return nil
 }
 
-// AddTask добавляет новую задачу в таблицу tasks
+// AddTask добавляет новую задачу в коллекцию
 func AddTask(task string) error {
-	_, err := db.Exec("INSERT INTO tasks (description) VALUES ($1)", task)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := tasksCollection.InsertOne(ctx, bson.M{"description": task})
 	if err != nil {
-		log.Printf("Ошибка при добавлении задачи: %v", err)
+		log.Printf("Ошибка добавления задачи: %v", err)
 		return err
 	}
 	log.Printf("Задача '%s' успешно добавлена", task)
 	return nil
 }
 
-// GetTasks возвращает список всех задач из таблицы tasks
+// GetTasks возвращает список всех задач
 func GetTasks() ([]string, error) {
-	rows, err := db.Query("SELECT description FROM tasks")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cursor, err := tasksCollection.Find(ctx, bson.M{})
 	if err != nil {
-		log.Printf("Ошибка при получении задач: %v", err)
+		log.Printf("Ошибка получения задач: %v", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer cursor.Close(ctx)
 
 	var tasks []string
-	for rows.Next() {
-		var task string
-		if err := rows.Scan(&task); err != nil {
-			log.Printf("Ошибка при чтении строки: %v", err)
+	for cursor.Next(ctx) {
+		var task struct {
+			Description string `bson:"description"`
+		}
+		if err := cursor.Decode(&task); err != nil {
+			log.Printf("Ошибка декодирования задачи: %v", err)
 			return nil, err
 		}
-		tasks = append(tasks, task)
+		tasks = append(tasks, task.Description)
 	}
 
-	if err := rows.Err(); err != nil {
-		log.Printf("Ошибка при обработке результатов: %v", err)
+	if err := cursor.Err(); err != nil {
+		log.Printf("Ошибка курсора: %v", err)
 		return nil, err
 	}
 
@@ -67,15 +91,17 @@ func GetTasks() ([]string, error) {
 	return tasks, nil
 }
 
-// DeleteTask удаляет задачу по ID
-func DeleteTask(id int) error {
-	// Удаляем задачу с указанным ID
-	_, err := db.Exec("DELETE FROM tasks WHERE id = $1", id)
+// DeleteTask удаляет задачу по описанию
+func DeleteTask(description string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := tasksCollection.DeleteOne(ctx, bson.M{"description": description})
 	if err != nil {
-		log.Printf("Ошибка при удалении задачи с ID %d: %v", id, err)
+		log.Printf("Ошибка удаления задачи: %v", err)
 		return err
 	}
 
-	log.Printf("Задача с ID %d успешно удалена", id)
+	log.Printf("Задача '%s' успешно удалена", description)
 	return nil
 }

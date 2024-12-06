@@ -3,12 +3,10 @@ package main
 import (
 	"firstProject/internal/db"
 	"firstProject/internal/handlers"
-	"log"
-	"os"
-	"time"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
+	"log"
+	"os"
 )
 
 func main() {
@@ -19,20 +17,12 @@ func main() {
 	}
 
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	dbConnection := os.Getenv("DATABASE_URL")
+	dbConnection := os.Getenv("MONGO_URL")
 
-	// Подключение к PostgreSQL с попытками повторного подключения
-	for i := 0; i < 5; i++ {
-		err = db.InitDB(dbConnection)
-		if err == nil {
-			log.Println("Успешное подключение к БД")
-			break
-		}
-		log.Printf("Попытка %d: не удалось подключиться к БД: %v", i+1, err)
-		time.Sleep(5 * time.Second)
-	}
+	// Подключение к MongoDB
+	err = db.InitDB(dbConnection)
 	if err != nil {
-		log.Fatal("Ошибка подключения к БД после нескольких попыток:", err)
+		log.Fatal("Ошибка подключения к MongoDB:", err)
 	}
 
 	// Создание Telegram-бота
@@ -58,7 +48,7 @@ func main() {
 			case "delete":
 				go handlers.DeleteTaskHandler(bot, update)
 			default:
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Команды:\n/add <задача> - добавить задачу\n/list - список задач\n/delete <номер> - удалить задачу")
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Команды:\n/add <задача> - добавить задачу\n/list - список задач\n/delete <описание> - удалить задачу")
 				bot.Send(msg)
 			}
 		}
