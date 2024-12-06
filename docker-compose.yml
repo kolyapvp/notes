@@ -11,7 +11,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8080:8080"  # Опциональный порт для health-check бота
+      - "8080:8080"
 
   db:
     image: postgres:15
@@ -20,7 +20,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: tasks
     ports:
-      - "5433:5432"  # Внешний порт 5433 мапится на внутренний 5432
+      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
