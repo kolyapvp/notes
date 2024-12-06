@@ -1,55 +1,50 @@
 package db
 
 import (
-	"context"
+	"database/sql"
 	"log"
-	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	_ "github.com/lib/pq" // PostgreSQL драйвер
 )
 
-var client *mongo.Client
-var tasksCollection *mongo.Collection
+var db *sql.DB
 
-// InitDB инициализирует подключение к MongoDB
+// InitDB инициализирует подключение к PostgreSQL
 func InitDB(conn string) error {
 	var err error
-	client, err = mongo.NewClient(options.Client().ApplyURI(conn))
+	db, err = sql.Open("postgres", conn)
 	if err != nil {
-		log.Printf("Ошибка создания клиента MongoDB: %v", err)
+		log.Printf("Ошибка подключения к PostgreSQL: %v", err)
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	err = client.Connect(ctx)
+	err = db.Ping()
 	if err != nil {
-		log.Printf("Ошибка подключения к MongoDB: %v", err)
+		log.Printf("Ошибка пинга PostgreSQL: %v", err)
 		return err
 	}
 
-	// Проверяем соединение
-	err = client.Ping(ctx, nil)
+	log.Println("Подключение к PostgreSQL установлено успешно")
+
+	// Создание таблицы задач, если она еще не существует
+	query := `
+	CREATE TABLE IF NOT EXISTS tasks (
+		id SERIAL PRIMARY KEY,
+		description TEXT NOT NULL
+	)`
+	_, err = db.Exec(query)
 	if err != nil {
-		log.Printf("Ошибка пинга MongoDB: %v", err)
+		log.Printf("Ошибка создания таблицы: %v", err)
 		return err
 	}
 
-	// Устанавливаем коллекцию
-	tasksCollection = client.Database("tasksdb").Collection("tasks")
-	log.Println("Подключение к MongoDB установлено успешно")
 	return nil
 }
 
-// AddTask добавляет новую задачу в коллекцию
+// AddTask добавляет новую задачу в таблицу
 func AddTask(task string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := tasksCollection.InsertOne(ctx, bson.M{"description": task})
+	query := `INSERT INTO tasks (description) VALUES ($1)`
+	_, err := db.Exec(query, task)
 	if err != nil {
 		log.Printf("Ошибка добавления задачи: %v", err)
 		return err
@@ -60,43 +55,30 @@ func AddTask(task string) error {
 
 // GetTasks возвращает список всех задач
 func GetTasks() ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	cursor, err := tasksCollection.Find(ctx, bson.M{})
+	rows, err := db.Query(`SELECT description FROM tasks`)
 	if err != nil {
 		log.Printf("Ошибка получения задач: %v", err)
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer rows.Close()
 
 	var tasks []string
-	for cursor.Next(ctx) {
-		var task struct {
-			Description string `bson:"description"`
-		}
-		if err := cursor.Decode(&task); err != nil {
-			log.Printf("Ошибка декодирования задачи: %v", err)
+	for rows.Next() {
+		var task string
+		if err := rows.Scan(&task); err != nil {
+			log.Printf("Ошибка сканирования строки: %v", err)
 			return nil, err
 		}
-		tasks = append(tasks, task.Description)
+		tasks = append(tasks, task)
 	}
 
-	if err := cursor.Err(); err != nil {
-		log.Printf("Ошибка курсора: %v", err)
-		return nil, err
-	}
-
-	log.Printf("Получено задач: %d", len(tasks))
 	return tasks, nil
 }
 
 // DeleteTask удаляет задачу по описанию
 func DeleteTask(description string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := tasksCollection.DeleteOne(ctx, bson.M{"description": description})
+	query := `DELETE FROM tasks WHERE description = $1`
+	_, err := db.Exec(query, description)
 	if err != nil {
 		log.Printf("Ошибка удаления задачи: %v", err)
 		return err

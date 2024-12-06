@@ -9,14 +9,13 @@ services:
       - .env
     depends_on:
       - db
-    ports:
-      - "8080:8080"
 
   db:
-    image: mongo:6.0
-    container_name: mongo_db
+    image: postgres:15
+    container_name: postgres_db
     ports:
-      - "27017:27017"
+      - "5433:5432"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: user
-      MONGO_INITDB_ROOT_PASSWORD: password
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: tasksdb

@@ -17,12 +17,12 @@ func main() {
 	}
 
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	dbConnection := os.Getenv("MONGO_URL")
+	dbURL := os.Getenv("POSTGRES_URL")
 
-	// Подключение к MongoDB
-	err = db.InitDB(dbConnection)
+	// Подключение к PostgreSQL
+	err = db.InitDB(dbURL)
 	if err != nil {
-		log.Fatal("Ошибка подключения к MongoDB:", err)
+		log.Fatal("Ошибка подключения к PostgreSQL:", err)
 	}
 
 	// Создание Telegram-бота
