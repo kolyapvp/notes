@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 
 # Install ca-certificates and build the app
-RUN apt-get update && apt-get install -y ca-certificates
+RUN apt-get update
 RUN go build -o app ./cmd/bot
 
 # Final Image
@@ -18,6 +18,5 @@ COPY --from=builder /app/app .
 COPY --from=builder /app/.env .
 
 # Install ca-certificates in the final image
-RUN apt-get update && apt-get install -y ca-certificates
 
 CMD ["./app"]
