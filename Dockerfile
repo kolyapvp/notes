@@ -8,7 +8,6 @@ RUN go mod download
 COPY . .
 
 # Install ca-certificates and build the app
-RUN apt-get update
 RUN go build -o app ./cmd/bot
 
 # Final Image
