@@ -58,13 +58,32 @@ func DeleteTaskHandler(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	arg := strings.TrimSpace(update.Message.CommandArguments())
 	index, err := strconv.Atoi(arg)
 	if err != nil || index <= 0 {
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите номер задачи для удаления.")
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите корректный номер задачи для удаления.")
 		bot.Send(msg)
 		return
 	}
 
-	// Преобразуем индекс в строку перед отправкой в DeleteTask
-	err = db.DeleteTask(strconv.Itoa(index - 1))
+	// Получаем список задач
+	tasks, err := db.GetTasks()
+	if err != nil {
+		log.Println("Ошибка получения задач:", err)
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не удалось получить список задач.")
+		bot.Send(msg)
+		return
+	}
+
+	// Проверяем, есть ли задача с таким номером
+	if index > len(tasks) {
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Задачи с таким номером нет.")
+		bot.Send(msg)
+		return
+	}
+
+	// Получаем описание задачи
+	taskToDelete := tasks[index-1]
+
+	// Удаляем задачу по описанию
+	err = db.DeleteTask(taskToDelete)
 	if err != nil {
 		log.Println("Ошибка удаления задачи:", err)
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не удалось удалить задачу.")
@@ -72,6 +91,6 @@ func DeleteTaskHandler(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		return
 	}
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Задача удалена!")
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Задача '%s' удалена!", taskToDelete))
 	bot.Send(msg)
 }

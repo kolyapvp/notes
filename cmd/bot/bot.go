@@ -45,10 +45,10 @@ func main() {
 				go handlers.AddTaskHandler(bot, update)
 			case "list":
 				go handlers.ListTasksHandler(bot, update)
-			case "delete":
+			case "del":
 				go handlers.DeleteTaskHandler(bot, update)
 			default:
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Команды:\n/add <задача> - добавить задачу\n/list - список задач\n/delete <описание> - удалить задачу")
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Команды:\n/add <задача> - добавить задачу\n/list - список задач\n/del <номер задачи> - удалить задачу")
 				bot.Send(msg)
 			}
 		}
